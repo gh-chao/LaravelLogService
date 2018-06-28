@@ -11,10 +11,6 @@ class Formatter extends \Monolog\Formatter\JsonFormatter
      */
     public function format(array $record)
     {
-        if (defined('REQUEST_ID')) {
-            $record['context']['req_id'] = REQUEST_ID;
-        }
-
         return [
             'datetime' => $record['datetime']->getTimestamp(),
             'message'  => $record['message'],
