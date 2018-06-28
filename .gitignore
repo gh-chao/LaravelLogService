@@ -1,8 +1,18 @@
 /vendor
-/.idea
 /package-lock.json
 /composer.lock
 
 .DS_Store
 index.html
 node_modules/
+
+npm-debug.log
+yarn-error.log
+
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+.project%
