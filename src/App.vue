@@ -2,8 +2,19 @@
     <div id="app">
         <div class="wrap">
             <div class="serachNav">
-                <el-input @keyup.enter.native="fetchData" placeholder="请输入关键字" v-model="request.query"
-                          clearable></el-input>
+                <!--<el-input @keyup.enter.native="fetchData" placeholder="请输入关键字" v-model="request.query" ></el-input>-->
+                <div style="width: 80%;position: relative;"
+                >
+                    <!--<input @keyup.enter.native="fetchData" placeholder="请输入关键字" v-model="request.query" type="text">-->
+                    <el-input @blur="blur" @focus="focus" @keyup.enter.native="fetchData" placeholder="请输入关键字" v-model="request.query" clearable></el-input>
+                    <div class="poppe" v-show="poppe">
+                        <ul class="ul">
+                            <li v-for="(item, index) in restaurants" :key="index" :index="index" @click.stop="itemClick(item, index)">{{item.value}}</li>
+                        </ul>
+                        <p class="clear" v-show="poppes" @click.stop="clear">清空历史记录</p>
+                    </div>
+                </div>
+
                 <div class="serachInput">
                     <el-select v-model="request.type" placeholder="请选择" @change="changeType">
                         <el-option v-for="item in options" :key="item.value" :label="item.label"
@@ -75,9 +86,34 @@
     const TYPE_WEEK = 'week'
     const TYPE_CUSTOM = 'custom'
 
+    //将对象元素转换成字符串以作比较
+    function obj2key(obj, keys){
+        var n = keys.length,
+            key = [];
+        while(n--){
+            key.push(obj[keys[n]]);
+        }
+        return key.join('|');
+    }
+    // //去重操作
+    function uniqeByKeys(array,keys){
+        var arr = [];
+        var hash = {};
+        for (var i = 0, j = array.length; i < j; i++) {
+            var k = obj2key(array[i], keys);
+            if (!(k in hash)) {
+                hash[k] = true;
+                arr .push(array[i]);
+            }
+        }
+        return arr ;
+    }
     export default {
         data() {
             return {
+                restaurants: [],
+                poppe: false,
+                poppes: false,
                 options: [
                     {
                         value: TYPE_MINUTE,
@@ -131,7 +167,25 @@
             VueJsonPretty
         },
         created: function () {
-            this.fetchData()
+            const that = this
+            const dateRange = this.getDateRange(this.request.type);
+            axios.post(Window.API, {
+                query: this.request.query,
+                page: this.request.page,
+                begin: this.dateFormat(dateRange[0]),
+                end: this.dateFormat(dateRange[1])
+            }, {
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+                withCredentials: true,
+                params: {
+                    t: Math.random()
+                }
+            }).then((response) => {
+                // console.log(that.keyword)
+                that.response.logs = response.data.data
+                that.response.total = response.data.meta.pagination.total
+                that.request.loading = false
+            })
         },
         filters: {// 过滤器
             capitalize: function (value) {
@@ -150,10 +204,24 @@
             },
 
             fetchData() {
+
                 const that = this
                 this.request.loading = true
 
                 const dateRange = this.getDateRange(this.request.type);
+
+                var array = this.restaurants
+                let obj = {'value': this.request.query}
+
+
+
+                if (obj.value != "") {
+                    array.unshift(obj)
+                    var arr = uniqeByKeys(array,['value']);
+                    localStorage.setItem('arrs', JSON.stringify(arr))
+                    this.restaurants = JSON.parse(localStorage.getItem('arrs'))
+                }
+
 
                 axios.post(Window.API, {
                     query: this.request.query,
@@ -167,6 +235,7 @@
                         t: Math.random()
                     }
                 }).then((response) => {
+                    // console.log(that.keyword)
                     that.response.logs = response.data.data
                     that.response.total = response.data.meta.pagination.total
                     that.request.loading = false
@@ -176,8 +245,6 @@
                 this.contextVisible = true
                 this.contextContent = JSON.parse(row.context)
             },
-
-
             getDateRange(type) {
                 let date = new Date();
                 switch (this.request.type) {
@@ -197,7 +264,26 @@
                     default:
                         return [addDays(date, -15), date];
                 }
+            },
 
+            itemClick(item, index){
+                this.request.query = item.value
+                this.poppe = false
+            },
+            focus() {
+                if (localStorage.getItem('arrs') != null) {
+                    this.poppe = true
+                    this.poppes = true
+                }
+            },
+            blur() {
+                setTimeout( () => {
+                    this.poppe = false
+                }, 300)
+            },
+            clear() {
+                localStorage.clear()
+                window.location.reload()
             }
 
             // loadType(type) {
@@ -229,6 +315,11 @@
             //
             //     this.fetchData()
             // }
+        },
+        mounted() {
+            if(localStorage.getItem('arrs') != null){
+                this.restaurants = JSON.parse(localStorage.getItem('arrs'))
+            }
         }
     }
 </script>
@@ -262,6 +353,33 @@
         display: flex;
     }
 
+    .clear{
+        height: 30px;
+        line-height: 30px;
+        background: #f0f0f0;
+        padding: 0;
+        cursor: pointer;
+    }
+    .poppe{
+        position: absolute;
+        top: 53px;
+        z-index: 999;
+        width: 100%;
+        background-color: #fff;
+        border: 1px solid #e4e7ed;
+        border-radius: 4px;
+    }
+    .ul{
+        list-style: none;
+    }
+    .ul li{
+        padding: 10px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .ul li:hover{
+        background-color: rgb(245,247,250);
+    }
     .journal {
         -webkit-box-flex: 1;
         -webkit-flex: 1;
@@ -273,7 +391,11 @@
         text-align: right;
         margin-top: 10px;
     }
-
+    .el-autocomplete {
+        position: relative;
+        display: inline-block;
+        width: 80%;
+    }
     .serachBtn,
     .serachInput,
     .dateTime {
